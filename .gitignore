@@ -1,0 +1,57 @@
+# ══════════════════════════════════════════════════════════════════════
+# ganji-wallet-service - .gitignore
+# ══════════════════════════════════════════════════════════════════════
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Crypto keys (NEVER commit these)
+*.pem
+*.key
+*-keypair.json
+wallet*.json
+
+# Debug
+.debug/
+
+node_modules
+api/secrets
+docs/development
+.agent/
