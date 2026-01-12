@@ -56,3 +56,4 @@ api/secrets
 docs/development
 .agent/
 solana-license-program/target
+api/scripts
