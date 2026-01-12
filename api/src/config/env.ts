@@ -20,21 +20,21 @@ const envSchema = z.object({
   GANJI_TESTNET_TOKEN_MINT: z.string().min(32),
   SOLANA_TESTNET_LICENSE_PROGRAM_ID: z.string().min(32),
 
-  SOLANA_MAINNET_RPC_URL: z.string().pipe(z.url()),
-  SOLANA_MAINNET_WALLET_PATH: z
-    .string()
-    .default("./secrets/master-keypair-mainnet.json"),
-  GANJI_MAINNET_TOKEN_MINT: z.string().min(32),
-  SOLANA_MAINNET_LICENSE_PROGRAM_ID: z.string().min(32),
+  // Solana Mainnet (optional - not yet in use)
+  SOLANA_MAINNET_RPC_URL: z.string().pipe(z.url()).optional(),
+  SOLANA_MAINNET_WALLET_PATH: z.string().optional(),
+  GANJI_MAINNET_TOKEN_MINT: z.string().min(32).optional(),
+  SOLANA_MAINNET_LICENSE_PROGRAM_ID: z.string().min(32).optional(),
 
-  // Litecoin
+  // Litecoin Testnet
   LITECOIN_TESTNET_RPC_URL: z.string().pipe(z.url()),
   LITECOIN_TESTNET_RPC_USER: z.string(),
   LITECOIN_TESTNET_RPC_PASS: z.string(),
 
-  LITECOIN_MAINNET_RPC_URL: z.string().pipe(z.url()),
-  LITECOIN_MAINNET_RPC_USER: z.string(),
-  LITECOIN_MAINNET_RPC_PASS: z.string(),
+  // Litecoin Mainnet (optional - not yet in use)
+  LITECOIN_MAINNET_RPC_URL: z.string().pipe(z.url()).optional(),
+  LITECOIN_MAINNET_RPC_USER: z.string().optional(),
+  LITECOIN_MAINNET_RPC_PASS: z.string().optional(),
 
   // Auth
   AUTH_API_KEY: z.string().min(1),
