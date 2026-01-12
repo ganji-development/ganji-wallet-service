@@ -1,3 +1,6 @@
+import { PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+
 export interface SolanaBalanceResponse {
   address: string;
   balance: number; // in SOL
@@ -18,6 +21,9 @@ export interface SolanaTransferResponse {
 }
 
 export interface CreateLicenseRequest {
+  recipientAddress?: string; // Add this if needed by routes
+  softwareId?: number;
+  durationSeconds?: number;
   name: string;
   symbol: string;
   uri: string;
@@ -35,4 +41,14 @@ export interface RevokeLicenseRequest {
 export interface RevokeLicenseResponse {
   signature: string;
   status: "revoked";
+}
+
+export interface LicenseAccount {
+  owner: PublicKey;
+  authority: PublicKey;
+  softwareId: BN;
+  purchaseTimestamp: BN;
+  expirationTimestamp: BN;
+  isActive: boolean;
+  bump: number;
 }

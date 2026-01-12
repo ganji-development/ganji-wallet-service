@@ -55,3 +55,4 @@ node_modules
 api/secrets
 docs/development
 .agent/
+solana-license-program/target

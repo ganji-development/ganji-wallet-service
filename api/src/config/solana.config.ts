@@ -6,4 +6,6 @@ export const solanaConfig = {
   rpcUrl: env.SOLANA_RPC_URL || clusterApiUrl(env.SOLANA_NETWORK),
   commitment: "confirmed" as const,
   walletPath: env.SOLANA_WALLET_PATH,
+  tokenMint: env.GANJI_TOKEN_MINT,
+  programId: env.SOLANA_LICENSE_PROGRAM_ID,
 };

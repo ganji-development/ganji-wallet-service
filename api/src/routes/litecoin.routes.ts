@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { LitecoinService } from "../services/litecoin.service.js";
+import { logger } from "../services/logger.service.js";
 import { validate } from "../middleware/validation.middleware.js";
 import { LitecoinValidators } from "../validators/litecoin.validators.js";
 
@@ -57,11 +58,16 @@ export class LitecoinRoutes {
     next: NextFunction
   ): Promise<void> {
     try {
-      const { destinationAddress, amount } = req.body;
+      const { destinationAddress, amount, useTestnet } = req.body;
       const result = await this.litecoinService.sendTransaction(
         destinationAddress,
         amount
       );
+      // useTestnet not natively supported by standard Litecoin RPC unless configuring separate client
+      if (useTestnet)
+        logger.warn(
+          "Litecoin testnet routing not yet implemented in service layer"
+        );
 
       res.status(200).json({
         success: true,

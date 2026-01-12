@@ -1,10 +1,14 @@
 import { env } from "./env.js";
 
 export const litecoinConfig = {
-  rpc: {
-    url: env.LITECOIN_RPC_URL,
-    username: env.LITECOIN_RPC_USER,
-    password: env.LITECOIN_RPC_PASS,
+  testnet: {
+    url: env.LITECOIN_TESTNET_RPC_URL,
+    username: env.LITECOIN_TESTNET_RPC_USER,
+    password: env.LITECOIN_TESTNET_RPC_PASS,
   },
-  network: env.NODE_ENV === "production" ? "mainnet" : "testnet",
+  mainnet: {
+    url: env.LITECOIN_MAINNET_RPC_URL,
+    username: env.LITECOIN_MAINNET_RPC_USER,
+    password: env.LITECOIN_MAINNET_RPC_PASS,
+  },
 };

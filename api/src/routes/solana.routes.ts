@@ -41,7 +41,11 @@ export class SolanaRoutes {
         return;
       }
       const addressStr = Array.isArray(address) ? address[0] : address;
-      const balance = await this.solanaService.getBalance(addressStr);
+      const useTestnet = req.query.useTestnet === "true";
+      const balance = await this.solanaService.getBalance(
+        addressStr,
+        useTestnet
+      );
       res.status(200).json({
         success: true,
         data: balance,
@@ -58,9 +62,13 @@ export class SolanaRoutes {
     next: NextFunction
   ): Promise<void> {
     try {
-      const { toAddress, amount } = req.body;
+      const { toAddress, amount, useTestnet } = req.body;
 
-      const result = await this.solanaService.transfer(toAddress, amount);
+      const result = await this.solanaService.transfer(
+        toAddress,
+        amount,
+        useTestnet
+      );
 
       res.status(200).json({
         success: true,
@@ -100,10 +108,11 @@ export class SolanaRoutes {
     next: NextFunction
   ): Promise<void> {
     try {
-      const { toAddress, amount } = req.body;
+      const { toAddress, amount, useTestnet } = req.body;
       const result = await this.solanaService.signAndSendTransaction(
         toAddress,
-        amount
+        amount,
+        useTestnet
       );
 
       res.status(200).json({

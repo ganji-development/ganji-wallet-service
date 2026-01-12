@@ -12,6 +12,6 @@
     "composite": true,
     "types": ["vitest/globals"]
   },
-  "include": ["src/**/*", "tests/**/*"],
+  "include": ["src/**/*", "tests/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "docs/**/*", "secrets/**/*", ".agent/**/*"]
 }

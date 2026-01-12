@@ -7,6 +7,8 @@ vi.mock("../../../src/services/logger.service.js", () => ({
   logger: {
     error: vi.fn(),
     debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
   },
 }));
 
@@ -23,6 +25,7 @@ vi.mock("@solana/web3.js", () => {
   class ConnectionMock {
     getBalance = vi.fn().mockResolvedValue(0);
     confirmTransaction = vi.fn().mockResolvedValue({ value: { err: null } });
+    getSignatureStatus = vi.fn().mockResolvedValue({ value: { slot: 0 } });
   }
 
   class PublicKeyMock {
@@ -51,6 +54,21 @@ vi.mock("@solana/web3.js", () => {
         secretKey: secret,
       })),
     },
+    Transaction: vi.fn(function () {
+      return {
+        add: function () {
+          return this;
+        },
+      };
+    }),
+    SystemProgram: {
+      transfer: vi.fn(function () {
+        return {};
+      }),
+    },
+    sendAndConfirmTransaction: vi.fn(function () {
+      return Promise.resolve("mock_real_signature");
+    }),
     LAMPORTS_PER_SOL: 1000000000,
   };
 });
@@ -119,12 +137,26 @@ describe("SolanaService", () => {
   });
 
   describe("transfer", () => {
-    it("should return mock transfer response using master wallet", async () => {
+    it("should return a real signature using master wallet", async () => {
+      // Mock the getSignatureStatus
+      const mockService = solanaService as unknown as {
+        connection: {
+          getSignatureStatus: ReturnType<typeof vi.fn>;
+        };
+        transfer: (to: string, amt: number) => Promise<unknown>;
+      };
+      mockService.connection.getSignatureStatus = vi.fn().mockResolvedValue({
+        value: { slot: 12345 },
+      });
+
       const response = await solanaService.transfer("toAddress", 1.0);
-      expect(response).toHaveProperty(
-        "signature",
-        "mock_signature_signed_by_master"
-      );
+      expect(response).toHaveProperty("signature", "mock_real_signature");
+      expect(response.slot).toBe(12345);
+    });
+    it("should throw error if transfer fails", async () => {
+      await expect(
+        solanaService.transfer("invalid-address", 1.0)
+      ).rejects.toThrow("Transfer failed");
     });
   });
 
@@ -132,6 +164,49 @@ describe("SolanaService", () => {
     it("should return mock license response", async () => {
       const response = await solanaService.createLicense("name", "sym", "uri");
       expect(response).toHaveProperty("mintAddress", "mock_mint");
+    });
+  });
+
+  describe("verifySignature", () => {
+    it("should return true", async () => {
+      const result = await solanaService.verifySignature("sig", "addr");
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("signAndSendTransaction", () => {
+    it("should call transfer and return signature", async () => {
+      // Mock the getSignatureStatus
+      const mockService = solanaService as unknown as {
+        connection: {
+          getSignatureStatus: ReturnType<typeof vi.fn>;
+        };
+      };
+      mockService.connection.getSignatureStatus = vi.fn().mockResolvedValue({
+        value: { slot: 12345 },
+      });
+      const response = await solanaService.signAndSendTransaction(
+        "toAddress",
+        1.0
+      );
+      expect(response).toHaveProperty("signature", "mock_real_signature");
+    });
+  });
+
+  describe("when master wallet is not loaded", () => {
+    it("should throw error for operations requiring master wallet", async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+      const serviceWithoutWallet = new SolanaService();
+
+      await expect(serviceWithoutWallet.transfer("to", 1)).rejects.toThrow(
+        "Master wallet not loaded"
+      );
+      await expect(
+        serviceWithoutWallet.createLicense("n", "s", "u")
+      ).rejects.toThrow("Master wallet not loaded");
+      await expect(
+        serviceWithoutWallet.signAndSendTransaction("to", 1)
+      ).rejects.toThrow("Master wallet not loaded");
     });
   });
 });

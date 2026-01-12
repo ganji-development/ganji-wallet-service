@@ -18,11 +18,17 @@ const envSchema = z.object({
     .enum(["mainnet-beta", "testnet", "devnet"])
     .default("devnet"),
   SOLANA_WALLET_PATH: z.string().default("./secrets/master-keypair.json"),
+  GANJI_TOKEN_MINT: z.string().min(32),
+  SOLANA_LICENSE_PROGRAM_ID: z.string().min(32),
 
   // Litecoin
-  LITECOIN_RPC_URL: z.string().pipe(z.url()),
-  LITECOIN_RPC_USER: z.string(),
-  LITECOIN_RPC_PASS: z.string(),
+  LITECOIN_TESTNET_RPC_URL: z.string().pipe(z.url()),
+  LITECOIN_TESTNET_RPC_USER: z.string(),
+  LITECOIN_TESTNET_RPC_PASS: z.string(),
+
+  LITECOIN_MAINNET_RPC_URL: z.string().pipe(z.url()),
+  LITECOIN_MAINNET_RPC_USER: z.string(),
+  LITECOIN_MAINNET_RPC_PASS: z.string(),
 
   // Auth
   AUTH_API_KEY: z.string().min(1),
