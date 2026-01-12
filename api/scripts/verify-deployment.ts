@@ -90,7 +90,8 @@ async function runTests() {
   // 5. Litecoin register asset (Testnet) - expects OP_RETURN
   let txId = "";
   try {
-    const data = "GanjiTestAsset-" + Date.now();
+    const dataStr = "GanjiTestAsset-" + Date.now();
+    const data = Buffer.from(dataStr, "utf-8").toString("hex");
     const res = await axiosInstance.post(`/litecoin/register-asset`, {
       data,
       useTestnet: true,

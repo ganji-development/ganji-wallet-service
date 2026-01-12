@@ -430,9 +430,10 @@ export class LitecoinService {
       // Skip OP_RETURN (6a) and the length byte
       const dataHex = hex.slice(4); // Simplified; real parsing would check length byte
 
+      const time = tx.blocktime || tx.time || Math.floor(Date.now() / 1000);
       return {
-        valid: tx.confirmations >= 1,
-        timestamp: new Date((tx.blocktime || tx.time) * 1000).toISOString(),
+        valid: (tx.confirmations || 0) >= 1,
+        timestamp: new Date(time * 1000).toISOString(),
         data: dataHex,
       };
     } catch (error) {
