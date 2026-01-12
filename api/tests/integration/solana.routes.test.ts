@@ -59,9 +59,9 @@ describe("Solana Routes", () => {
   });
 
   it("POST /api/v1/solana/sign-and-send should sign and send", async () => {
-    vi.spyOn(solanaService, "signAndSendTransaction").mockResolvedValue({
-      signature: "mock_signed_signature_by_master",
-    });
+    vi.spyOn(solanaService, "signAndSendTransaction").mockResolvedValue(
+      "mock_signed_signature_by_master"
+    );
 
     const app = application.getApp();
     const res = await request(app)

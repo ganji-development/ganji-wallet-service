@@ -87,7 +87,7 @@ Use PM2 to run the application in the background using the provided configuratio
 
 ```bash
 cd api
-pm2 start ecosystem.config.js
+pm2 start ecosystem.config.cjs
 pm2 save
 pm2 startup
 ```
