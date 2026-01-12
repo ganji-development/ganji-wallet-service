@@ -144,16 +144,18 @@ curl -X POST https://cnode.ganjidevelopment.com/api/v1/solana/transfer \
   -H "Content-Type: application/json" \
   -d '{
     "to": "RecipientPublicKeyHere...",
-    "amount": 0.1
+    "amount": 0.1,
+    "useTestnet": true
   }'
 ```
 
 #### Request Body
 
-| Field    | Type   | Required | Description                          |
-| -------- | ------ | -------- | ------------------------------------ |
-| `to`     | string | Yes      | Recipient Solana public key (base58) |
-| `amount` | number | Yes      | Amount of SOL to transfer            |
+| Field        | Type    | Required | Description                          |
+| ------------ | ------- | -------- | ------------------------------------ |
+| `to`         | string  | Yes      | Recipient Solana public key (base58) |
+| `amount`     | number  | Yes      | Amount of SOL to transfer            |
+| `useTestnet` | boolean | No       | Use Testnet/Devnet (default: false)  |
 
 #### Response
 
@@ -245,9 +247,10 @@ curl -X POST https://cnode.ganjidevelopment.com/api/v1/solana/sign-and-send \
 
 #### Request Body
 
-| Field         | Type   | Required | Description                           |
-| ------------- | ------ | -------- | ------------------------------------- |
-| `transaction` | string | Yes      | Base64-encoded serialized transaction |
+| Field         | Type    | Required | Description                           |
+| ------------- | ------- | -------- | ------------------------------------- |
+| `transaction` | string  | Yes      | Base64-encoded serialized transaction |
+| `useTestnet`  | boolean | No       | Use Testnet/Devnet (default: false)   |
 
 #### Response
 
@@ -289,14 +292,15 @@ curl -X POST https://cnode.ganjidevelopment.com/api/v1/solana/license/create \
 
 #### Request Body
 
-| Field                           | Type   | Required | Description                              |
-| ------------------------------- | ------ | -------- | ---------------------------------------- |
-| `recipient`                     | string | Yes      | Recipient Solana public key (base58)     |
-| `licenseId`                     | string | Yes      | Unique license identifier (UUID)         |
-| `metadata.name`                 | string | Yes      | Token name                               |
-| `metadata.symbol`               | string | Yes      | Token symbol (max 10 chars)              |
-| `metadata.uri`                  | string | Yes      | Metadata URI (Arweave/IPFS)              |
-| `metadata.sellerFeeBasisPoints` | number | No       | Royalty fee in basis points (default: 0) |
+| Field                           | Type    | Required | Description                              |
+| ------------------------------- | ------- | -------- | ---------------------------------------- |
+| `recipient`                     | string  | Yes      | Recipient Solana public key (base58)     |
+| `licenseId`                     | string  | Yes      | Unique license identifier (UUID)         |
+| `metadata.name`                 | string  | Yes      | Token name                               |
+| `metadata.symbol`               | string  | Yes      | Token symbol (max 10 chars)              |
+| `metadata.uri`                  | string  | Yes      | Metadata URI (Arweave/IPFS)              |
+| `metadata.sellerFeeBasisPoints` | number  | No       | Royalty fee in basis points (default: 0) |
+| `useTestnet`                    | boolean | No       | Use Testnet/Devnet (default: false)      |
 
 #### Response
 
@@ -427,10 +431,11 @@ curl -X POST https://cnode.ganjidevelopment.com/api/v1/litecoin/send \
 
 #### Request Body
 
-| Field    | Type   | Required | Description                |
-| -------- | ------ | -------- | -------------------------- |
-| `to`     | string | Yes      | Recipient Litecoin address |
-| `amount` | number | Yes      | Amount of LTC to send      |
+| Field        | Type    | Required | Description                           |
+| ------------ | ------- | -------- | ------------------------------------- |
+| `to`         | string  | Yes      | Recipient Litecoin address            |
+| `amount`     | number  | Yes      | Amount of LTC to send                 |
+| `useTestnet` | boolean | No       | Use Litecoin Testnet (default: false) |
 
 #### Response
 
@@ -546,13 +551,15 @@ curl -X POST https://cnode.ganjidevelopment.com/api/v1/litecoin/asset/register \
 
 #### Request Body
 
-| Field             | Type   | Required | Description                                 |
-| ----------------- | ------ | -------- | ------------------------------------------- |
-| `assetId`         | string | Yes      | Unique asset identifier (UUID)              |
-| `hash`            | string | Yes      | SHA256 hash of asset content (64 chars hex) |
-| `metadata.type`   | string | Yes      | Asset type (music, artwork, license)        |
-| `metadata.title`  | string | No       | Asset title                                 |
-| `metadata.artist` | string | No       | Artist/creator name                         |
+| Field             | Type    | Required | Description                                 |
+| ----------------- | ------- | -------- | ------------------------------------------- |
+| `assetId`         | string  | Yes      | Unique asset identifier (UUID)              |
+| `hash`            | string  | Yes      | SHA256 hash of asset content (64 chars hex) |
+| `metadata.type`   | string  | Yes      | Asset type (music, artwork, license)        |
+| `metadata.title`  | string  | No       | Asset title                                 |
+| `metadata.title`  | string  | No       | Asset title                                 |
+| `metadata.artist` | string  | No       | Artist/creator name                         |
+| `useTestnet`      | boolean | No       | Use Litecoin Testnet (default: false)       |
 
 #### Response
 
