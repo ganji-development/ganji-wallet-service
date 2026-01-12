@@ -76,10 +76,7 @@ export const validateEnv = (): EnvConfig => {
     return envSchema.parse(process.env);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error(
-        "❌ Invalid environment variables:",
-        JSON.stringify(error.format(), null, 2)
-      );
+      console.error("❌ Invalid environment variables:", z.treeifyError(error));
       throw new Error("Invalid environment variables");
     }
     throw error;
