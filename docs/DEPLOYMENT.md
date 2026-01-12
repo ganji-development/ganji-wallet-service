@@ -83,12 +83,19 @@ pnpm build
 
 ## 4. Process Management (PM2)
 
-Use PM2 to run the application in the background.
+Use PM2 to run the application in the background using the provided configuration file.
 
 ```bash
-pm2 start dist/index.js --name "ganji-wallet"
+cd api
+pm2 start ecosystem.config.js
 pm2 save
 pm2 startup
+```
+
+To view logs:
+
+```bash
+pm2 logs ganji-wallet-api
 ```
 
 ## 5. Nginx Reverse Proxy & SSL
