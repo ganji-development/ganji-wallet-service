@@ -50,52 +50,93 @@ interface LicenseProgram extends Idl {
 export class SolanaService {
   private connection: Connection;
   private testnetConnection: Connection;
-  private masterKeypair: Keypair | null = null;
-  private program: Program<LicenseProgram> | null = null;
+  private mainnetKeypair: Keypair | null = null;
+  private testnetKeypair: Keypair | null = null;
+  // Program ID can differ per network
+  private mainnetProgram: Program<LicenseProgram> | null = null;
+  private testnetProgram: Program<LicenseProgram> | null = null;
 
   constructor() {
-    // Default Devnet connection
+    // Default Mainnet connection
     this.connection = new Connection(
-      config.solana.rpcUrl,
-      config.solana.commitment
+      config.solana.mainnet.rpcUrl,
+      config.solana.mainnet.commitment
     );
-    // Initialize potential Testnet connection (if different URL provided or defaults)
-    // For now we just use the same URL if not explicitly different, but structure is here
+    // Link Testnet connection
     this.testnetConnection = new Connection(
-      config.solana.rpcUrl.replace("devnet", "testnet"),
-      config.solana.commitment
+      config.solana.testnet.rpcUrl,
+      config.solana.testnet.commitment
     );
-    this.loadMasterWallet();
+    this.loadWallets();
   }
 
   private getConnection(useTestnet: boolean = false): Connection {
     return useTestnet ? this.testnetConnection : this.connection;
   }
 
-  private loadMasterWallet(): void {
+  private getKeypair(useTestnet: boolean = false): Keypair | null {
+    return useTestnet ? this.testnetKeypair : this.mainnetKeypair;
+  }
+
+  private getProgram(
+    useTestnet: boolean = false
+  ): Program<LicenseProgram> | null {
+    return useTestnet ? this.testnetProgram : this.mainnetProgram;
+  }
+
+  private loadWallets(): void {
+    // Load Mainnet Wallet
     try {
-      if (fs.existsSync(config.solana.walletPath)) {
+      if (fs.existsSync(config.solana.mainnet.walletPath)) {
         const keyData = JSON.parse(
-          fs.readFileSync(config.solana.walletPath, "utf-8")
+          fs.readFileSync(config.solana.mainnet.walletPath, "utf-8")
         );
-        this.masterKeypair = Keypair.fromSecretKey(new Uint8Array(keyData));
+        this.mainnetKeypair = Keypair.fromSecretKey(new Uint8Array(keyData));
         logger.info(
-          `Master wallet loaded: ${this.masterKeypair.publicKey.toBase58()}`
+          `Mainnet wallet loaded: ${this.mainnetKeypair.publicKey.toBase58()}`
         );
 
-        // Initialize Anchor program
-        const wallet = new Wallet(this.masterKeypair) as unknown as Wallet;
+        // Init Mainnet Anchor
+        const wallet = new Wallet(this.mainnetKeypair) as unknown as Wallet;
         const provider = new AnchorProvider(this.connection, wallet, {
-          commitment: config.solana.commitment,
+          commitment: config.solana.mainnet.commitment,
         });
-        this.program = new Program(IDL as LicenseProgram, provider);
+        // Note: IDL address field is static, but we override programId via Program constructor if needed,
+        // essentially we ignore the IDL address default for multi-chain support
+        this.mainnetProgram = new Program(IDL as LicenseProgram, provider);
       } else {
         logger.warn(
-          `Master wallet not found at: ${config.solana.walletPath}. Signing operations will fail.`
+          `Mainnet wallet not found at: ${config.solana.mainnet.walletPath}`
         );
       }
-    } catch (error) {
-      logger.error("Failed to load master wallet", { error });
+    } catch (e) {
+      logger.error("Failed to load Mainnet wallet", { error: e });
+    }
+
+    // Load Testnet Wallet
+    try {
+      if (fs.existsSync(config.solana.testnet.walletPath)) {
+        const keyData = JSON.parse(
+          fs.readFileSync(config.solana.testnet.walletPath, "utf-8")
+        );
+        this.testnetKeypair = Keypair.fromSecretKey(new Uint8Array(keyData));
+        logger.info(
+          `Testnet wallet loaded: ${this.testnetKeypair.publicKey.toBase58()}`
+        );
+
+        // Init Testnet Anchor
+        const wallet = new Wallet(this.testnetKeypair) as unknown as Wallet;
+        const provider = new AnchorProvider(this.testnetConnection, wallet, {
+          commitment: config.solana.testnet.commitment,
+        });
+        this.testnetProgram = new Program(IDL as LicenseProgram, provider);
+      } else {
+        logger.warn(
+          `Testnet wallet not found at: ${config.solana.testnet.walletPath}`
+        );
+      }
+    } catch (e) {
+      logger.error("Failed to load Testnet wallet", { error: e });
     }
   }
 
@@ -140,8 +181,11 @@ export class SolanaService {
     amount: number,
     useTestnet: boolean = false
   ): Promise<SolanaTransferResponse> {
-    if (!this.masterKeypair) {
-      throw new Error("Master wallet not loaded");
+    const keypair = this.getKeypair(useTestnet);
+    if (!keypair) {
+      throw new Error(
+        `Master wallet not loaded for ${useTestnet ? "Testnet" : "Mainnet"}`
+      );
     }
 
     try {
@@ -151,7 +195,7 @@ export class SolanaService {
 
       const transaction = new Transaction().add(
         SystemProgram.transfer({
-          fromPubkey: this.masterKeypair.publicKey,
+          fromPubkey: keypair.publicKey,
           toPubkey: toPublicKey,
           lamports,
         })
@@ -161,14 +205,14 @@ export class SolanaService {
       const signature = await sendAndConfirmTransaction(
         connection,
         transaction,
-        [this.masterKeypair]
+        [keypair]
       );
 
-      const status = await this.connection.getSignatureStatus(signature);
+      const status = await connection.getSignatureStatus(signature);
 
       return {
         signature,
-        from: this.masterKeypair.publicKey.toBase58(),
+        from: keypair.publicKey.toBase58(),
         to: toAddress,
         amount,
         slot: status.value?.slot || 0,
@@ -188,10 +232,18 @@ export class SolanaService {
   public async createLicense(
     recipientAddress: string,
     _name: string, // Unused for now
-    _uri: string // Unused for now
+    _uri: string, // Unused for now
+    useTestnet: boolean = false
   ): Promise<CreateLicenseResponse> {
-    if (!this.masterKeypair || !this.program) {
-      throw new Error("Master wallet or program not loaded");
+    const keypair = this.getKeypair(useTestnet);
+    const program = this.getProgram(useTestnet);
+
+    if (!keypair || !program) {
+      throw new Error(
+        `Master wallet or program not loaded for ${
+          useTestnet ? "Testnet" : "Mainnet"
+        }`
+      );
     }
 
     try {
@@ -205,7 +257,7 @@ export class SolanaService {
 
       let programId: PublicKey;
       try {
-        programId = this.program.programId;
+        programId = program.programId;
         logger.info(`Program ID: ${programId.toBase58()}`);
       } catch {
         throw new Error("Could not get program ID from Anchor program object");
@@ -230,19 +282,21 @@ export class SolanaService {
       );
 
       // 2. Call Program Instruction
-      const signature = await this.program.methods
+      const signature = await program.methods
         .issueLicense(new BN(softwareIdNum), new BN(duration))
         .accounts({
           licenseAccount: licensePda,
           user: userPublicKey,
-          authority: this.masterKeypair.publicKey,
+          authority: keypair.publicKey,
           systemProgram: SystemProgram.programId,
         })
         .rpc();
 
       // 3. (Optional) Also send 1 GNJ as an ecosystem credit
       try {
-        const tokenMintStr = config.solana.tokenMint.trim();
+        const tokenMintStr = useTestnet
+          ? config.solana.testnet.tokenMint.trim()
+          : config.solana.mainnet.tokenMint.trim();
         let mintPublicKey: PublicKey;
         try {
           mintPublicKey = new PublicKey(tokenMintStr);
@@ -252,15 +306,16 @@ export class SolanaService {
           );
         }
 
+        const connection = this.getConnection(useTestnet);
         const sourceAccount = await getOrCreateAssociatedTokenAccount(
-          this.connection,
-          this.masterKeypair,
+          connection,
+          keypair,
           mintPublicKey,
-          this.masterKeypair.publicKey
+          keypair.publicKey
         );
         const destinationAccount = await getOrCreateAssociatedTokenAccount(
-          this.connection,
-          this.masterKeypair,
+          connection,
+          keypair,
           mintPublicKey,
           userPublicKey
         );
@@ -269,13 +324,11 @@ export class SolanaService {
           createTransferInstruction(
             sourceAccount.address,
             destinationAccount.address,
-            this.masterKeypair.publicKey,
+            keypair.publicKey,
             amount
           )
         );
-        await sendAndConfirmTransaction(this.connection, transferTx, [
-          this.masterKeypair,
-        ]);
+        await sendAndConfirmTransaction(connection, transferTx, [keypair]);
         logger.info(`Sent 1 GNJ welcome token to ${recipientAddress}`);
       } catch (tokenError) {
         logger.warn("License issued but token transfer failed", {
@@ -315,9 +368,11 @@ export class SolanaService {
 
   public async getLicenseState(
     recipientAddress: string,
-    softwareId: number = 1
+    softwareId: number = 1,
+    useTestnet: boolean = false
   ): Promise<LicenseAccount> {
-    if (!this.program) {
+    const program = this.getProgram(useTestnet);
+    if (!program) {
       throw new Error("Program not loaded");
     }
 
@@ -328,12 +383,12 @@ export class SolanaService {
         userPublicKey.toBuffer(),
         new BN(softwareId).toArrayLike(Buffer, "le", 8),
       ],
-      this.program.programId
+      program.programId
     );
 
     try {
       // Use bracket notation with a specific type cast to avoid 'any'
-      const accountClient = this.program.account as unknown as {
+      const accountClient = program.account as unknown as {
         licenseAccount: {
           fetch: (address: PublicKey) => Promise<LicenseAccount>;
         };
@@ -349,10 +404,18 @@ export class SolanaService {
   public async renewLicense(
     recipientAddress: string,
     durationSeconds: number,
-    softwareId: number = 1
+    softwareId: number = 1,
+    useTestnet: boolean = false
   ): Promise<string> {
-    if (!this.masterKeypair || !this.program) {
-      throw new Error("Master wallet or program not loaded");
+    const keypair = this.getKeypair(useTestnet);
+    const program = this.getProgram(useTestnet);
+
+    if (!keypair || !program) {
+      throw new Error(
+        `Master wallet or program not loaded for ${
+          useTestnet ? "Testnet" : "Mainnet"
+        }`
+      );
     }
 
     const userPublicKey = new PublicKey(recipientAddress);
@@ -362,15 +425,15 @@ export class SolanaService {
         userPublicKey.toBuffer(),
         new BN(softwareId).toArrayLike(Buffer, "le", 8),
       ],
-      this.program.programId
+      program.programId
     );
 
     try {
-      const signature = await this.program.methods
+      const signature = await program.methods
         .renewLicense(new BN(durationSeconds))
         .accounts({
           licenseAccount: licensePda,
-          authority: this.masterKeypair.publicKey,
+          authority: keypair.publicKey,
         })
         .rpc();
 
