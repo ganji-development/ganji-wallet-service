@@ -23,6 +23,15 @@ export class LitecoinRoutes {
     );
     this.router.post("/verify", this.verify.bind(this));
     this.router.get("/network", this.getNetwork.bind(this));
+
+    // New endpoints
+    this.router.post("/create-wallet", this.createWallet.bind(this));
+    this.router.post(
+      "/register-asset",
+      validate(LitecoinValidators.registerAssetSchema),
+      this.registerAsset.bind(this)
+    );
+    this.router.get("/verify-asset/:txId", this.verifyAsset.bind(this));
   }
 
   public getRouter(): Router {
@@ -36,12 +45,17 @@ export class LitecoinRoutes {
   ): Promise<void> {
     try {
       const { address } = req.params;
+      const useTestnet = req.query.useTestnet === "true";
+
       if (!address) {
         res.status(400).json({ success: false, error: "Address is required" });
         return;
       }
       const addressStr = Array.isArray(address) ? address[0] : address;
-      const balance = await this.litecoinService.getBalance(addressStr);
+      const balance = await this.litecoinService.getBalance(
+        addressStr,
+        useTestnet
+      );
       res.status(200).json({
         success: true,
         data: balance,
@@ -61,13 +75,9 @@ export class LitecoinRoutes {
       const { destinationAddress, amount, useTestnet } = req.body;
       const result = await this.litecoinService.sendTransaction(
         destinationAddress,
-        amount
+        amount,
+        useTestnet
       );
-      // useTestnet not natively supported by standard Litecoin RPC unless configuring separate client
-      if (useTestnet)
-        logger.warn(
-          "Litecoin testnet routing not yet implemented in service layer"
-        );
 
       res.status(200).json({
         success: true,
@@ -85,8 +95,12 @@ export class LitecoinRoutes {
     next: NextFunction
   ): Promise<void> {
     try {
-      const { txId, address } = req.body;
-      const valid = await this.litecoinService.verifyTransaction(txId, address);
+      const { txId, address, useTestnet } = req.body;
+      const valid = await this.litecoinService.verifyTransaction(
+        txId,
+        address,
+        useTestnet
+      );
 
       res.status(200).json({
         success: true,
@@ -104,11 +118,82 @@ export class LitecoinRoutes {
     next: NextFunction
   ): Promise<void> {
     try {
-      const info = await this.litecoinService.getNetworkInfo();
+      const useTestnet = req.query.useTestnet === "true";
+      const info = await this.litecoinService.getNetworkInfo(useTestnet);
 
       res.status(200).json({
         success: true,
         data: info,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  private async createWallet(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { useTestnet } = req.body;
+      const result = await this.litecoinService.createWallet(useTestnet);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  private async registerAsset(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { data, useTestnet } = req.body;
+      const result = await this.litecoinService.registerAsset(data, useTestnet);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  private async verifyAsset(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { txId } = req.params;
+      const useTestnet = req.query.useTestnet === "true";
+
+      if (!txId) {
+        res
+          .status(400)
+          .json({ success: false, error: "Transaction ID is required" });
+        return;
+      }
+
+      const txIdStr = Array.isArray(txId) ? txId[0] : txId;
+      const result = await this.litecoinService.verifyAsset(
+        txIdStr,
+        useTestnet
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
