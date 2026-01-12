@@ -7,7 +7,7 @@ module.exports = {
       exec_mode: "fork",
       watch: false,
       env: {
-        NODE_ENV: "production",
+        NODE_ENV: "development",
         PORT: 3000,
       },
       log_date_format: "YYYY-MM-DD HH:mm:ss Z",
