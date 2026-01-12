@@ -39,17 +39,25 @@ interface RawTransaction {
 }
 
 export class LitecoinService {
-  private mainnetConfig: { url: string; auth: string };
+  private mainnetConfig: { url: string; auth: string } | null = null;
   private testnetConfig: { url: string; auth: string };
 
   constructor() {
-    this.mainnetConfig = {
-      url: config.litecoin.mainnet.url,
-      auth: `Basic ${Buffer.from(
-        `${config.litecoin.mainnet.username}:${config.litecoin.mainnet.password}`
-      ).toString("base64")}`,
-    };
+    // Mainnet config (optional)
+    if (
+      config.litecoin.mainnet.url &&
+      config.litecoin.mainnet.username &&
+      config.litecoin.mainnet.password
+    ) {
+      this.mainnetConfig = {
+        url: config.litecoin.mainnet.url,
+        auth: `Basic ${Buffer.from(
+          `${config.litecoin.mainnet.username}:${config.litecoin.mainnet.password}`
+        ).toString("base64")}`,
+      };
+    }
 
+    // Testnet config (required)
     this.testnetConfig = {
       url: config.litecoin.testnet.url,
       auth: `Basic ${Buffer.from(
@@ -59,7 +67,13 @@ export class LitecoinService {
   }
 
   private getConfig(useTestnet: boolean) {
-    return useTestnet ? this.testnetConfig : this.mainnetConfig;
+    if (useTestnet) {
+      return this.testnetConfig;
+    }
+    if (!this.mainnetConfig) {
+      throw new Error("Mainnet Litecoin not configured");
+    }
+    return this.mainnetConfig;
   }
 
   /**

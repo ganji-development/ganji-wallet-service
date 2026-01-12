@@ -48,7 +48,7 @@ interface LicenseProgram extends Idl {
 }
 
 export class SolanaService {
-  private connection: Connection;
+  private connection: Connection | null = null;
   private testnetConnection: Connection;
   private mainnetKeypair: Keypair | null = null;
   private testnetKeypair: Keypair | null = null;
@@ -57,12 +57,14 @@ export class SolanaService {
   private testnetProgram: Program<LicenseProgram> | null = null;
 
   constructor() {
-    // Default Mainnet connection
-    this.connection = new Connection(
-      config.solana.mainnet.rpcUrl,
-      config.solana.mainnet.commitment
-    );
-    // Link Testnet connection
+    // Mainnet connection (optional)
+    if (config.solana.mainnet.rpcUrl) {
+      this.connection = new Connection(
+        config.solana.mainnet.rpcUrl,
+        config.solana.mainnet.commitment
+      );
+    }
+    // Testnet connection (required)
     this.testnetConnection = new Connection(
       config.solana.testnet.rpcUrl,
       config.solana.testnet.commitment
@@ -71,7 +73,13 @@ export class SolanaService {
   }
 
   private getConnection(useTestnet: boolean = false): Connection {
-    return useTestnet ? this.testnetConnection : this.connection;
+    if (useTestnet) {
+      return this.testnetConnection;
+    }
+    if (!this.connection) {
+      throw new Error("Mainnet connection not configured");
+    }
+    return this.connection;
   }
 
   private getKeypair(useTestnet: boolean = false): Keypair | null {
@@ -85,32 +93,36 @@ export class SolanaService {
   }
 
   private loadWallets(): void {
-    // Load Mainnet Wallet
-    try {
-      if (fs.existsSync(config.solana.mainnet.walletPath)) {
-        const keyData = JSON.parse(
-          fs.readFileSync(config.solana.mainnet.walletPath, "utf-8")
-        );
-        this.mainnetKeypair = Keypair.fromSecretKey(new Uint8Array(keyData));
-        logger.info(
-          `Mainnet wallet loaded: ${this.mainnetKeypair.publicKey.toBase58()}`
-        );
+    // Load Mainnet Wallet (if configured)
+    if (config.solana.mainnet.walletPath && this.connection) {
+      try {
+        if (fs.existsSync(config.solana.mainnet.walletPath)) {
+          const keyData = JSON.parse(
+            fs.readFileSync(config.solana.mainnet.walletPath, "utf-8")
+          );
+          this.mainnetKeypair = Keypair.fromSecretKey(new Uint8Array(keyData));
+          logger.info(
+            `Mainnet wallet loaded: ${this.mainnetKeypair.publicKey.toBase58()}`
+          );
 
-        // Init Mainnet Anchor
-        const wallet = new Wallet(this.mainnetKeypair) as unknown as Wallet;
-        const provider = new AnchorProvider(this.connection, wallet, {
-          commitment: config.solana.mainnet.commitment,
-        });
-        // Note: IDL address field is static, but we override programId via Program constructor if needed,
-        // essentially we ignore the IDL address default for multi-chain support
-        this.mainnetProgram = new Program(IDL as LicenseProgram, provider);
-      } else {
-        logger.warn(
-          `Mainnet wallet not found at: ${config.solana.mainnet.walletPath}`
-        );
+          // Init Mainnet Anchor
+          const wallet = new Wallet(this.mainnetKeypair) as unknown as Wallet;
+          const provider = new AnchorProvider(this.connection, wallet, {
+            commitment: config.solana.mainnet.commitment,
+          });
+          // Note: IDL address field is static, but we override programId via Program constructor if needed,
+          // essentially we ignore the IDL address default for multi-chain support
+          this.mainnetProgram = new Program(IDL as LicenseProgram, provider);
+        } else {
+          logger.warn(
+            `Mainnet wallet not found at: ${config.solana.mainnet.walletPath}`
+          );
+        }
+      } catch (e) {
+        logger.error("Failed to load Mainnet wallet", { error: e });
       }
-    } catch (e) {
-      logger.error("Failed to load Mainnet wallet", { error: e });
+    } else {
+      logger.info("Mainnet wallet not configured, skipping");
     }
 
     // Load Testnet Wallet
@@ -294,9 +306,21 @@ export class SolanaService {
 
       // 3. (Optional) Also send 1 GNJ as an ecosystem credit
       try {
-        const tokenMintStr = useTestnet
-          ? config.solana.testnet.tokenMint.trim()
-          : config.solana.mainnet.tokenMint.trim();
+        const tokenMint = useTestnet
+          ? config.solana.testnet.tokenMint
+          : config.solana.mainnet.tokenMint;
+
+        if (!tokenMint) {
+          logger.warn(
+            "Token mint not configured, skipping welcome token transfer"
+          );
+          return {
+            mintAddress: licensePda.toBase58(),
+            signature,
+          };
+        }
+
+        const tokenMintStr = tokenMint.trim();
         let mintPublicKey: PublicKey;
         try {
           mintPublicKey = new PublicKey(tokenMintStr);
