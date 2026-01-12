@@ -41,6 +41,7 @@ interface RawTransaction {
 export class LitecoinService {
   private mainnetConfig: { url: string; auth: string } | null = null;
   private testnetConfig: { url: string; auth: string };
+  private readonly WALLET_NAME = "ganji";
 
   constructor() {
     // Mainnet config (optional)
@@ -82,11 +83,19 @@ export class LitecoinService {
   private async rpcCall<T>(
     method: string,
     params: unknown[] = [],
-    useTestnet: boolean = false
+    useTestnet: boolean = false,
+    useWallet: boolean = false
   ): Promise<T> {
     const { url, auth } = this.getConfig(useTestnet);
 
-    const response = await fetch(url, {
+    let rpcUrl = url;
+    if (useWallet) {
+      rpcUrl = url.endsWith("/")
+        ? `${url}wallet/${this.WALLET_NAME}`
+        : `${url}/wallet/${this.WALLET_NAME}`;
+    }
+
+    const response = await fetch(rpcUrl, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain",
@@ -135,12 +144,14 @@ export class LitecoinService {
       const balance = await this.rpcCall<number>(
         "getreceivedbyaddress",
         [address, 1],
-        useTestnet
+        useTestnet,
+        true
       );
       const unconfirmed = await this.rpcCall<number>(
         "getreceivedbyaddress",
         [address, 0],
-        useTestnet
+        useTestnet,
+        true
       );
 
       return {
@@ -167,26 +178,59 @@ export class LitecoinService {
     privateKey: string;
   }> {
     try {
-      const address = await this.rpcCall<string>(
-        "getnewaddress",
-        ["ganji-wallet"],
-        useTestnet
-      );
-      // Note: dumpprivkey requires wallet to be unlocked
-      // In production, you'd manage keys differently
-      const privateKey = await this.rpcCall<string>(
-        "dumpprivkey",
-        [address],
-        useTestnet
-      );
+      // Try to get address
+      return await this._generateWallet(useTestnet);
+    } catch (error: any) {
+      // If no wallet loaded (code: -18)
+      if (error.message?.includes("code: -18")) {
+        logger.warn(
+          `No Litecoin wallet loaded, attempting to init '${this.WALLET_NAME}'...`
+        );
+        await this.ensureWalletLoaded(useTestnet);
+        // Retry
+        return await this._generateWallet(useTestnet);
+      }
 
-      return { address, privateKey };
-    } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       logger.error("Error creating Litecoin wallet", { error: errorMessage });
       throw new Error(`Failed to create wallet: ${errorMessage}`);
     }
+  }
+
+  private async ensureWalletLoaded(useTestnet: boolean): Promise<void> {
+    try {
+      await this.rpcCall("loadwallet", [this.WALLET_NAME], useTestnet);
+      logger.info(`Loaded Litecoin wallet: ${this.WALLET_NAME}`);
+    } catch (e: any) {
+      if (e.message?.includes("code: -35")) return;
+
+      try {
+        await this.rpcCall("createwallet", [this.WALLET_NAME], useTestnet);
+        logger.info(`Created Litecoin wallet: ${this.WALLET_NAME}`);
+      } catch (createErr: any) {
+        if (createErr.message?.includes("code: -4")) return;
+        logger.warn(`Failed to auto-init wallet: ${createErr.message}`);
+      }
+    }
+  }
+
+  private async _generateWallet(
+    useTestnet: boolean
+  ): Promise<{ address: string; privateKey: string }> {
+    const address = await this.rpcCall<string>(
+      "getnewaddress",
+      [this.WALLET_NAME],
+      useTestnet,
+      true
+    );
+    const privateKey = await this.rpcCall<string>(
+      "dumpprivkey",
+      [address],
+      useTestnet,
+      true
+    );
+    return { address, privateKey };
   }
 
   /**
@@ -202,14 +246,16 @@ export class LitecoinService {
       const txId = await this.rpcCall<string>(
         "sendtoaddress",
         [destination, amount],
-        useTestnet
+        useTestnet,
+        true
       );
 
       // Get transaction details for fee info
       const txInfo = await this.rpcCall<{ fee: number }>(
         "gettransaction",
         [txId],
-        useTestnet
+        useTestnet,
+        true
       );
 
       return {
@@ -244,11 +290,28 @@ export class LitecoinService {
       }
 
       // 1. Get unspent outputs to fund the transaction
-      const unspent = await this.rpcCall<UnspentOutput[]>(
-        "listunspent",
-        [1, 9999999],
-        useTestnet
-      );
+      // 1. Get unspent outputs to fund the transaction
+      let unspent: UnspentOutput[];
+      try {
+        unspent = await this.rpcCall<UnspentOutput[]>(
+          "listunspent",
+          [1, 9999999],
+          useTestnet,
+          true
+        );
+      } catch (e: any) {
+        if (e.message?.includes("code: -18")) {
+          await this.ensureWalletLoaded(useTestnet);
+          unspent = await this.rpcCall<UnspentOutput[]>(
+            "listunspent",
+            [1, 9999999],
+            useTestnet,
+            true
+          );
+        } else {
+          throw e;
+        }
+      }
 
       if (unspent.length === 0) {
         throw new Error("No unspent outputs available to fund transaction");
@@ -279,14 +342,15 @@ export class LitecoinService {
       const rawTx = await this.rpcCall<string>(
         "createrawtransaction",
         [inputs, outputs],
-        useTestnet
+        useTestnet,
+        true
       );
 
       // 3. Sign the transaction
       const signedResult = await this.rpcCall<{
         hex: string;
         complete: boolean;
-      }>("signrawtransactionwithwallet", [rawTx], useTestnet);
+      }>("signrawtransactionwithwallet", [rawTx], useTestnet, true);
 
       if (!signedResult.complete) {
         throw new Error("Transaction signing incomplete");
@@ -296,7 +360,8 @@ export class LitecoinService {
       const txId = await this.rpcCall<string>(
         "sendrawtransaction",
         [signedResult.hex],
-        useTestnet
+        useTestnet,
+        true
       );
 
       logger.info("Asset registered on Litecoin blockchain", {
