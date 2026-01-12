@@ -1,36 +1,7 @@
 import { z } from "zod";
 import dotenv from "dotenv";
-import path from "path";
-import fs from "fs";
 
-console.info(`Current working directory: ${process.cwd()}`);
-console.info(`__dirname: ${__dirname}`);
-
-const possiblePaths = [
-  path.resolve(process.cwd(), ".env"),
-  path.resolve(__dirname, "../../.env"),
-  path.resolve(__dirname, "../../../.env"),
-  path.resolve(__dirname, "../.env"),
-];
-
-let envLoaded = false;
-for (const p of possiblePaths) {
-  if (fs.existsSync(p)) {
-    console.info(`Found .env at: ${p}`);
-    const result = dotenv.config({ path: p });
-    if (result.error) {
-      console.warn(`⚠️  Failed to load .env from ${p}:`, result.error.message);
-    } else {
-      envLoaded = true;
-      console.info("✅ .env loaded successfully");
-      break;
-    }
-  }
-}
-
-if (!envLoaded) {
-  console.warn("⚠️  No .env file found in any of the searched locations.");
-}
+dotenv.config();
 
 const envSchema = z.object({
   NODE_ENV: z
