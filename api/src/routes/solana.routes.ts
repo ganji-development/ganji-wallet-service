@@ -23,6 +23,11 @@ export class SolanaRoutes {
     // verify and signAndSend are in blueprint but not fully supported by service yet
     this.router.post("/verify", this.verify.bind(this));
     this.router.post("/sign-and-send", this.signAndSend.bind(this));
+    this.router.post(
+      "/create-license",
+      validate(SolanaValidators.createLicenseSchema),
+      this.createLicense.bind(this)
+    );
   }
 
   public getRouter(): Router {
@@ -112,6 +117,30 @@ export class SolanaRoutes {
       const result = await this.solanaService.signAndSendTransaction(
         toAddress,
         amount,
+        useTestnet
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  private async createLicense(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { recipientAddress, name, uri, useTestnet } = req.body;
+      const result = await this.solanaService.createLicense(
+        recipientAddress,
+        name,
+        uri,
         useTestnet
       );
 

@@ -8,9 +8,9 @@ export const SolanaValidators = {
   }),
 
   createLicenseSchema: z.object({
-    name: z.string().min(1).max(32),
-    symbol: z.string().min(1).max(10),
-    uri: z.string().pipe(z.url()),
+    recipientAddress: z.string().min(32).max(44), // Base58 address
+    name: z.string().min(1).max(32).optional().default("License"),
+    uri: z.string().optional().default(""),
     useTestnet: z.boolean().optional().default(false),
   }),
 
