@@ -1,6 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { LitecoinService } from "../services/litecoin.service.js";
-import { logger } from "../services/logger.service.js";
 import { validate } from "../middleware/validation.middleware.js";
 import { LitecoinValidators } from "../validators/litecoin.validators.js";
 

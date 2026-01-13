@@ -38,6 +38,10 @@ interface RawTransaction {
   }>;
 }
 
+interface RpcError extends Error {
+  message: string;
+}
+
 export class LitecoinService {
   private mainnetConfig: { url: string; auth: string } | null = null;
   private testnetConfig: { url: string; auth: string };
@@ -180,9 +184,10 @@ export class LitecoinService {
     try {
       // Try to get address
       return await this._generateWallet(useTestnet);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const rpcError = error as RpcError;
       // If no wallet loaded (code: -18)
-      if (error.message?.includes("code: -18")) {
+      if (rpcError.message?.includes("code: -18")) {
         logger.warn(
           `No Litecoin wallet loaded, attempting to init '${this.WALLET_NAME}'...`
         );
@@ -202,15 +207,17 @@ export class LitecoinService {
     try {
       await this.rpcCall("loadwallet", [this.WALLET_NAME], useTestnet);
       logger.info(`Loaded Litecoin wallet: ${this.WALLET_NAME}`);
-    } catch (e: any) {
-      if (e.message?.includes("code: -35")) return;
+    } catch (e: unknown) {
+      const rpcError = e as RpcError;
+      if (rpcError.message?.includes("code: -35")) return;
 
       try {
         await this.rpcCall("createwallet", [this.WALLET_NAME], useTestnet);
         logger.info(`Created Litecoin wallet: ${this.WALLET_NAME}`);
-      } catch (createErr: any) {
-        if (createErr.message?.includes("code: -4")) return;
-        logger.warn(`Failed to auto-init wallet: ${createErr.message}`);
+      } catch (createErr: unknown) {
+        const createRpcError = createErr as RpcError;
+        if (createRpcError.message?.includes("code: -4")) return;
+        logger.warn(`Failed to auto-init wallet: ${createRpcError.message}`);
       }
     }
   }
@@ -299,8 +306,9 @@ export class LitecoinService {
           useTestnet,
           true
         );
-      } catch (e: any) {
-        if (e.message?.includes("code: -18")) {
+      } catch (e: unknown) {
+        const rpcError = e as RpcError;
+        if (rpcError.message?.includes("code: -18")) {
           await this.ensureWalletLoaded(useTestnet);
           unspent = await this.rpcCall<UnspentOutput[]>(
             "listunspent",
