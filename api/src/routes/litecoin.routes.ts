@@ -14,7 +14,6 @@ export class LitecoinRoutes {
   }
 
   private setupRoutes(): void {
-    this.router.get("/balance/:address", this.getBalance.bind(this));
     this.router.post(
       "/send",
       validate(LitecoinValidators.transferSchema),
@@ -35,34 +34,6 @@ export class LitecoinRoutes {
 
   public getRouter(): Router {
     return this.router;
-  }
-
-  private async getBalance(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { address } = req.params;
-      const useTestnet = req.query.useTestnet === "true";
-
-      if (!address) {
-        res.status(400).json({ success: false, error: "Address is required" });
-        return;
-      }
-      const addressStr = Array.isArray(address) ? address[0] : address;
-      const balance = await this.litecoinService.getBalance(
-        addressStr,
-        useTestnet
-      );
-      res.status(200).json({
-        success: true,
-        data: balance,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      next(error);
-    }
   }
 
   private async send(

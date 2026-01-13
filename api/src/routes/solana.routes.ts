@@ -14,13 +14,11 @@ export class SolanaRoutes {
   }
 
   private setupRoutes(): void {
-    this.router.get("/balance/:address", this.getBalance.bind(this));
     this.router.post(
       "/transfer",
       validate(SolanaValidators.transferSchema),
       this.transfer.bind(this)
     );
-    // verify and signAndSend are in blueprint but not fully supported by service yet
     this.router.post("/verify", this.verify.bind(this));
     this.router.post("/sign-and-send", this.signAndSend.bind(this));
     this.router.post(
@@ -32,33 +30,6 @@ export class SolanaRoutes {
 
   public getRouter(): Router {
     return this.router;
-  }
-
-  private async getBalance(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { address } = req.params;
-      if (!address) {
-        res.status(400).json({ success: false, error: "Address is required" });
-        return;
-      }
-      const addressStr = Array.isArray(address) ? address[0] : address;
-      const useTestnet = req.query.useTestnet === "true";
-      const balance = await this.solanaService.getBalance(
-        addressStr,
-        useTestnet
-      );
-      res.status(200).json({
-        success: true,
-        data: balance,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      next(error);
-    }
   }
 
   private async transfer(

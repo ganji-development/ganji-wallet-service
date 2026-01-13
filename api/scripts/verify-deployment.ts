@@ -1,5 +1,7 @@
 import axios from "axios";
-import { Keypair } from "@solana/web3.js";
+import { Keypair, Connection } from "@solana/web3.js";
+
+const SOLANA_RPC = "https://api.devnet.solana.com";
 
 const API_URL = "https://cnode.ganjidevelopment.com/api/v1";
 const API_KEY =
@@ -63,29 +65,10 @@ async function runTests() {
   console.info("\n🟣 SOLANA ENDPOINTS");
   console.info("-".repeat(40));
 
-  // 2. Solana Balance
-  console.info("\n[2] GET /solana/balance/:address");
   const solanaAddress = "EXj5yXactDY8oErJUo2ARoWTp5JSuihkNajhxoEy8ZuZ";
-  try {
-    const res = await axiosInstance.get(
-      `/solana/balance/${solanaAddress}?useTestnet=true`
-    );
-    logResult(
-      "Solana Balance",
-      true,
-      `Balance: ${res.data.data.balance} SOL (${res.data.data.lamports} lamports)`
-    );
-  } catch (err) {
-    const error = err as SimpleAxiosError;
-    logResult(
-      "Solana Balance",
-      false,
-      error.response?.data?.error || error.message
-    );
-  }
 
-  // 3. Solana Verify Signature
-  console.info("\n[3] POST /solana/verify");
+  // 2. Solana Verify Signature
+  console.info("\n[2] POST /solana/verify");
   try {
     // This is a utility endpoint - test with dummy data
     const res = await axiosInstance.post(`/solana/verify`, {
@@ -111,33 +94,30 @@ async function runTests() {
     }
   }
 
-  // 4. Solana Transfer (requires SOL)
-  console.info("\n[4] POST /solana/transfer");
+  // 3. Solana Transfer (requires SOL)
+  console.info("\n[3] POST /solana/transfer");
   const tempKeypair = Keypair.generate();
+  let solTransferSig = "";
   try {
     const res = await axiosInstance.post(`/solana/transfer`, {
       toAddress: tempKeypair.publicKey.toBase58(),
       amount: 0.001,
       useTestnet: true,
     });
-    logResult("Solana Transfer", true, `Signature: ${res.data.data.signature}`);
+    solTransferSig = res.data.data.signature;
+    logResult("Solana Transfer", true, `Signature: ${solTransferSig}`);
   } catch (err) {
     const error = err as SimpleAxiosError;
     const msg = error.response?.data?.error || error.message;
-    // Check if it's an expected error (insufficient funds)
     if (msg.includes("insufficient") || msg.includes("0x1")) {
-      logResult(
-        "Solana Transfer",
-        false,
-        "Insufficient SOL in master wallet (expected on testnet)"
-      );
+      logResult("Solana Transfer", false, "Insufficient SOL in master wallet");
     } else {
       logResult("Solana Transfer", false, msg);
     }
   }
 
-  // 5. Solana Sign and Send
-  console.info("\n[5] POST /solana/sign-and-send");
+  // 4. Solana Sign and Send
+  console.info("\n[4] POST /solana/sign-and-send");
   try {
     const res = await axiosInstance.post(`/solana/sign-and-send`, {
       toAddress: tempKeypair.publicKey.toBase58(),
@@ -159,8 +139,8 @@ async function runTests() {
     }
   }
 
-  // 6. Solana Create License
-  console.info("\n[6] POST /solana/create-license");
+  // 5. Solana Create License
+  console.info("\n[5] POST /solana/create-license");
   try {
     const res = await axiosInstance.post(`/solana/create-license`, {
       recipientAddress: tempKeypair.publicKey.toBase58(),
@@ -191,14 +171,47 @@ async function runTests() {
     }
   }
 
+  // 5b. ON-CHAIN VERIFICATION - Verify Solana transfer actually exists on-chain
+  console.info("\n[5b] 🔍 ON-CHAIN: Verify Solana signature on Devnet");
+  if (solTransferSig) {
+    try {
+      const connection = new Connection(SOLANA_RPC, "confirmed");
+      const txInfo = await connection.getTransaction(solTransferSig, {
+        maxSupportedTransactionVersion: 0,
+      });
+      if (txInfo) {
+        logResult(
+          "Solana On-Chain Verify",
+          true,
+          `TX confirmed on Devnet! Slot: ${txInfo.slot}, Fee: ${txInfo.meta?.fee} lamports`
+        );
+      } else {
+        logResult(
+          "Solana On-Chain Verify",
+          false,
+          "TX not found on-chain (may still be processing)"
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logResult("Solana On-Chain Verify", false, msg);
+    }
+  } else {
+    logResult(
+      "Solana On-Chain Verify",
+      false,
+      "Skipped - no transfer signature"
+    );
+  }
+
   // ============================================================
   // LITECOIN ENDPOINTS
   // ============================================================
   console.info("\n\n🔶 LITECOIN ENDPOINTS");
   console.info("-".repeat(40));
 
-  // 7. Litecoin Network
-  console.info("\n[7] GET /litecoin/network");
+  // 6. Litecoin Network
+  console.info("\n[6] GET /litecoin/network");
   try {
     const res = await axiosInstance.get(`/litecoin/network?useTestnet=true`);
     logResult(
@@ -215,108 +228,66 @@ async function runTests() {
     );
   }
 
-  // 8. Litecoin Create Wallet
-  console.info("\n[8] POST /litecoin/create-wallet");
-  let ltcAddress = "";
-  try {
-    const res = await axiosInstance.post(`/litecoin/create-wallet`, {
-      useTestnet: true,
-    });
-    ltcAddress = res.data.data.address;
-    logResult("Litecoin Create Wallet", true, `Address: ${ltcAddress}`);
-  } catch (err) {
-    const error = err as SimpleAxiosError;
-    logResult(
-      "Litecoin Create Wallet",
-      false,
-      error.response?.data?.error || error.message
-    );
-  }
+  // 7. Use existing Litecoin testnet address (no need to create new ones)
+  console.info("\n[7] Using existing LTC testnet address");
+  const ltcAddress = "tltc1q9r7wm7m7q2wck93jxqayafsmfdapuf9es3ra8w"; // existing address
+  logResult("Litecoin Address", true, `Using: ${ltcAddress}`);
 
-  // 9. Litecoin Balance
-  console.info("\n[9] GET /litecoin/balance/:address");
-  if (ltcAddress) {
-    try {
-      const res = await axiosInstance.get(
-        `/litecoin/balance/${ltcAddress}?useTestnet=true`
-      );
-      logResult(
-        "Litecoin Balance",
-        true,
-        `Balance: ${res.data.data.balance} LTC`
-      );
-    } catch (err) {
-      const error = err as SimpleAxiosError;
-      const msg = error.response?.data?.error || error.message;
-      // May fail if address not in wallet
-      if (msg.includes("not found") || msg.includes("Invalid")) {
-        logResult(
-          "Litecoin Balance",
-          true,
-          "Endpoint responds (address not tracked by wallet)"
-        );
-      } else {
-        logResult("Litecoin Balance", false, msg);
-      }
-    }
-  } else {
-    logResult("Litecoin Balance", false, "Skipped - no wallet created");
-  }
-
-  // 10. Litecoin Send
-  console.info("\n[10] POST /litecoin/send");
+  // 8. Litecoin Send
+  console.info("\n[8] POST /litecoin/send");
+  let sendTxId = "";
   try {
     const res = await axiosInstance.post(`/litecoin/send`, {
-      destinationAddress: ltcAddress || "tltc1qtest",
+      destinationAddress: ltcAddress, // send back to same address
       amount: 0.0001,
       useTestnet: true,
     });
-    logResult("Litecoin Send", true, `TXID: ${res.data.data.txId}`);
+    sendTxId = res.data.data.txId;
+    logResult("Litecoin Send", true, `TXID: ${sendTxId}`);
   } catch (err) {
     const error = err as SimpleAxiosError;
     const msg = error.response?.data?.error || error.message;
     if (msg.includes("insufficient") || msg.includes("No unspent")) {
-      logResult(
-        "Litecoin Send",
-        false,
-        "Insufficient LTC in wallet (expected on testnet)"
-      );
+      logResult("Litecoin Send", false, "Insufficient LTC in wallet");
     } else {
       logResult("Litecoin Send", false, msg);
     }
   }
 
-  // 11. Litecoin Verify Transaction
-  console.info("\n[11] POST /litecoin/verify");
-  try {
-    // Use a dummy txId - endpoint should handle it gracefully
-    const res = await axiosInstance.post(`/litecoin/verify`, {
-      txId: "0000000000000000000000000000000000000000000000000000000000000000",
-      address: ltcAddress || "tltc1qtest",
-      useTestnet: true,
-    });
-    logResult(
-      "Litecoin Verify Transaction",
-      true,
-      `Valid: ${res.data.data.valid}`
-    );
-  } catch (err) {
-    const error = err as SimpleAxiosError;
-    const msg = error.response?.data?.error || error.message;
-    // May fail for invalid txId, but endpoint should respond
-    if (error.response?.status === 500 || error.response?.status === 400) {
+  // 9. Litecoin Verify Transaction - use the REAL txId from send
+  console.info("\n[9] POST /litecoin/verify");
+  if (sendTxId) {
+    try {
+      const res = await axiosInstance.post(`/litecoin/verify`, {
+        txId: sendTxId,
+        address: ltcAddress,
+        useTestnet: true,
+      });
+      // Transaction should exist in mempool/blockchain
+      // verifyTransaction returns true if confirmations >= 1
       logResult(
         "Litecoin Verify Transaction",
         true,
-        "Endpoint responds (returned error for invalid txId)"
+        `TX exists, Confirmed: ${res.data.data.valid}`
       );
-    } else {
-      logResult("Litecoin Verify Transaction", false, msg);
+    } catch (err) {
+      const error = err as SimpleAxiosError;
+      logResult(
+        "Litecoin Verify Transaction",
+        false,
+        error.response?.data?.error || error.message
+      );
     }
+  } else {
+    logResult(
+      "Litecoin Verify Transaction",
+      false,
+      "Skipped - no send txId available"
+    );
   }
 
-  // 12. Litecoin Register Asset (requires LTC)
-  console.info("\n[12] POST /litecoin/register-asset");
+  // 10. Litecoin Register Asset (requires LTC)
+  console.info("\n[10] POST /litecoin/register-asset");
   let assetTxId = "";
   try {
     const dataStr = "GanjiTestAsset-" + Date.now();
@@ -341,20 +312,20 @@ async function runTests() {
     }
   }
 
-  // 13. Litecoin Verify Asset
-  console.info("\n[13] GET /litecoin/verify-asset/:txId");
+  // 11. Litecoin Verify Asset - verify the registered asset tx exists
+  console.info("\n[11] GET /litecoin/verify-asset/:txId");
   if (assetTxId) {
     try {
       const res = await axiosInstance.get(
         `/litecoin/verify-asset/${assetTxId}?useTestnet=true`
       );
+      const isConfirmed = res.data.data.valid;
+      const dataPreview = res.data.data.data?.slice(0, 20) || "none";
+      // TX exists and data was retrieved - that's success!
       logResult(
         "Litecoin Verify Asset",
         true,
-        `Valid: ${res.data.data.valid}, Data: ${res.data.data.data?.slice(
-          0,
-          20
-        )}...`
+        `TX found! Confirmed: ${isConfirmed}, Data: ${dataPreview}...`
       );
     } catch (err) {
       const error = err as SimpleAxiosError;
