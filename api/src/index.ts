@@ -27,7 +27,12 @@ export class Application {
 
   private setupMiddleware(): void {
     this.app.use(helmet());
-    this.app.use(cors());
+    this.app.use(
+      cors({
+        origin: config.auth.allowedOrigin,
+        credentials: true,
+      })
+    );
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
 

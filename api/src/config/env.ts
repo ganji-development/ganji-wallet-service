@@ -38,6 +38,7 @@ const envSchema = z.object({
 
   // Auth
   AUTH_API_KEY: z.string().min(1),
+  ALLOWED_ORIGIN: z.string().default("*"),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

@@ -14,5 +14,6 @@ export const config = {
   litecoin: litecoinConfig,
   auth: {
     apiKey: env.AUTH_API_KEY,
+    allowedOrigin: env.ALLOWED_ORIGIN,
   },
 };
